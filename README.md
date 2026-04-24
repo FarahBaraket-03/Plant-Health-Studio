@@ -9,6 +9,14 @@ A comprehensive machine learning system for classifying plant diseases using mul
 
 ---
 
+## 👾 Overview
+
+<img width="1860" height="885" alt="Capture d&#39;écran 2026-04-24 044331" src="https://github.com/user-attachments/assets/5830a13a-72aa-43d5-95ea-55dcb79a7df2" />
+
+<img width="1862" height="884" alt="Capture d&#39;écran 2026-04-24 044319" src="https://github.com/user-attachments/assets/dad2a7d5-65b2-4d38-b4a5-98347d6f5e7b" />
+
+---
+
 ## 🌟 Features
 
 ### 4 Classification Models
