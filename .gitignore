@@ -71,6 +71,11 @@ desktop.ini
 *.bak
 *.cache
 
+X_test.npy
+X_train.npy
+y_test.npy
+y_train.npy
+
 # Old documentation files
 STARTUP_GUIDE.md
 GETTING_STARTED.md
