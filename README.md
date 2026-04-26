@@ -13,7 +13,8 @@ A comprehensive machine learning system for classifying plant diseases using mul
 
 <img width="1860" height="885" alt="Capture d&#39;écran 2026-04-24 044331" src="https://github.com/user-attachments/assets/5830a13a-72aa-43d5-95ea-55dcb79a7df2" />
 <br></br>
-
+<img width="1900" height="879" alt="Capture d&#39;écran 2026-04-26 143635" src="https://github.com/user-attachments/assets/22e3ce65-6c01-440a-a4db-e78823d2b435" />
+<br></br>
 <img width="1862" height="884" alt="Capture d&#39;écran 2026-04-24 044319" src="https://github.com/user-attachments/assets/dad2a7d5-65b2-4d38-b4a5-98347d6f5e7b" />
 
 ---
@@ -115,10 +116,10 @@ projet_img/
 
 | Model | Accuracy | Inference Time | Model Size | Best For |
 |-------|----------|----------------|------------|----------|
-| **DL Pretrained** | ~95% | 50ms | 44MB | Maximum accuracy |
-| **DL Scratch** | ~90% | 15ms | 2MB | Mobile/Edge |
-| **ML Full** | ~88% | 10ms | 5MB | Interpretability |
-| **ML PCA** | ~87% | 3ms | 3MB | Production APIs |
+| **DL Pretrained** | ~97% | 50ms | 44MB | Maximum accuracy |
+| **DL Scratch** | ~88% | 15ms | 2MB | Mobile/Edge |
+| **ML Full** | ~98% | 18ms | 5MB | Interpretability |
+| **ML PCA** | ~90% | 3ms | 3MB | Production APIs |
 
 ---
 
