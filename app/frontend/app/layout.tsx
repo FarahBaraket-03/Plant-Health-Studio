@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   title: 'Plant Health Studio - Disease Detection',
   description: 'AI-powered plant disease detection using Machine Learning and Deep Learning models',
   icons: {
-    icon: './images/leaf1.png',
+    icon: './leaf1.png',
     shortcut: '/images/leaf1.png',
     apple: '/images/leaf1.png',
   },
