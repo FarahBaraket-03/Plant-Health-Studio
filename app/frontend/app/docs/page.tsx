@@ -390,7 +390,7 @@ export default function Documentation() {
               <li>• DL Pretrained offers best accuracy but requires more computational resources</li>
               <li>• ML + PCA provides 3× faster inference than full ML with only 1% accuracy drop</li>
               <li>• DL Scratch balances accuracy and efficiency, ideal for mobile deployment</li>
-              <li>• All models achieve >85% accuracy, suitable for production use</li>
+              <li>• All models achieve &gt;85% accuracy, suitable for production use</li>
             </ul>
           </div>
         </section>
