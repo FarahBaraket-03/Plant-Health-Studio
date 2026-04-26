@@ -192,6 +192,30 @@ def _load_dl_checkpoint(
 
 
 def _load_labels() -> List[str]:
+    """
+    Load disease class labels. On Render, data directories are not available,
+    so we hardcode the labels that match the trained models.
+    """
+    # Hardcoded labels (sorted alphabetically, matching training data)
+    HARDCODED_LABELS = [
+        "Pepper__bell___Bacterial_spot",
+        "Pepper__bell___healthy",
+        "Potato___Early_blight",
+        "Potato___Late_blight",
+        "Potato___healthy",
+        "Tomato_Bacterial_spot",
+        "Tomato_Early_blight",
+        "Tomato_Late_blight",
+        "Tomato_Leaf_Mold",
+        "Tomato_Septoria_leaf_spot",
+        "Tomato_Spider_mites_Two_spotted_spider_mite",
+        "Tomato__Target_Spot",
+        "Tomato__Tomato_YellowLeaf__Curl_Virus",
+        "Tomato__Tomato_mosaic_virus",
+        "Tomato_healthy",
+    ]
+    
+    # Try to load from data directories (local development)
     def has_direct_images(folder: Path) -> bool:
         patterns = ("*.jpg", "*.jpeg", "*.png", "*.JPG", "*.JPEG", "*.PNG")
         return any(folder.glob(pattern) for pattern in patterns)
@@ -211,7 +235,8 @@ def _load_labels() -> List[str]:
         if labels:
             return sorted(labels)
 
-    return []
+    # Fallback to hardcoded labels (Render deployment)
+    return HARDCODED_LABELS
 
 
 def load_models() -> None:
@@ -570,102 +595,141 @@ async def health_check():
 
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
-    # On Render, only require ML-PCA model (ML Full is disabled)
-    if IS_RENDER and ml_pca_model is None:
-        raise HTTPException(status_code=500, detail="ML-PCA model not loaded")
-    # Locally, require at least one ML model
-    elif not IS_RENDER and ml_model is None and ml_pca_model is None:
-        raise HTTPException(status_code=500, detail="No ML models loaded")
-
-    contents = await file.read()
-    if not contents:
-        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
-
     try:
-        image = Image.open(io.BytesIO(contents)).convert("RGB")
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail="Invalid image file.") from exc
+        # On Render, only require ML-PCA model (ML Full is disabled)
+        if IS_RENDER and ml_pca_model is None:
+            return {
+                "error": "ML-PCA model not loaded",
+                "details": "Model file not found on Render. Check deployment logs.",
+                "models_status": {
+                    "ml_pca_loaded": ml_pca_model is not None,
+                    "dl_loaded": isinstance(dl_model, torch.nn.Module),
+                    "dl_scratch_loaded": isinstance(dl_scratch_model, torch.nn.Module),
+                }
+            }
+        # Locally, require at least one ML model
+        elif not IS_RENDER and ml_model is None and ml_pca_model is None:
+            raise HTTPException(status_code=500, detail="No ML models loaded")
 
-    image_np = np.array(image)
-    
-    # Generate analysis visualizations from raw image
-    analysis = _get_image_analysis(image_np)
+        contents = await file.read()
+        if not contents:
+            raise HTTPException(status_code=400, detail="Uploaded file is empty.")
 
-    # Extract features using unified preprocessing pipeline
-    feature_vector = _extract_feature_vector(image_np).reshape(1, -1)
-    
-    # Verify feature dimensions
-    if feature_vector.shape[1] != 118:
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Feature extraction error: expected 118 features, got {feature_vector.shape[1]}"
-        )
-    
-    # ML prediction with error handling
-    try:
-        ml_class, ml_score = _predict_ml(feature_vector)
-    except Exception as e:
-        print(f"ML prediction error: {e}")
-        ml_class = "Unknown"
-        ml_score = 0.0
+        try:
+            image = Image.open(io.BytesIO(contents)).convert("RGB")
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=f"Invalid image file: {str(exc)}") from exc
 
-    # ML-PCA prediction
-    try:
-        ml_pca_class, ml_pca_score, n_pca_components = _predict_ml_pca(feature_vector)
-    except Exception as e:
-        print(f"ML-PCA prediction error: {e}")
-        ml_pca_class = "Unknown"
-        ml_pca_score = 0.0
-        n_pca_components = 0
+        image_np = np.array(image)
+        
+        # Generate analysis visualizations from raw image
+        try:
+            analysis = _get_image_analysis(image_np)
+        except Exception as e:
+            print(f"Analysis error: {e}")
+            analysis = {}
 
-    # DL predictions
-    dl_class, dl_score, dl_explanation = _predict_dl(image_np, dl_model, dl_model_kind, "pretrained")
-    dl_scratch_class, dl_scratch_score, dl_scratch_explanation = _predict_dl(
-        image_np,
-        dl_scratch_model,
-        dl_scratch_model_kind,
-        "scratch",
-    )
+        # Extract features using unified preprocessing pipeline
+        try:
+            feature_vector = _extract_feature_vector(image_np).reshape(1, -1)
+            
+            # Verify feature dimensions
+            if feature_vector.shape[1] != 118:
+                raise HTTPException(
+                    status_code=500, 
+                    detail=f"Feature extraction error: expected 118 features, got {feature_vector.shape[1]}"
+                )
+        except Exception as e:
+            print(f"Feature extraction error: {e}")
+            raise HTTPException(status_code=500, detail=f"Feature extraction failed: {str(e)}")
+        
+        # ML prediction with error handling
+        try:
+            ml_class, ml_score = _predict_ml(feature_vector)
+        except Exception as e:
+            print(f"ML prediction error: {e}")
+            ml_class = "Error"
+            ml_score = 0.0
 
-    return {
-        "dl": {
-            "class": dl_class,
-            "score": round(dl_score * 100, 2),
-            "explanation": dl_explanation,
-        },
-        "dl_scratch": {
-            "class": dl_scratch_class,
-            "score": round(dl_scratch_score * 100, 2),
-            "explanation": dl_scratch_explanation,
-        },
-        "ml": {
-            "class": ml_class,
-            "score": round(ml_score * 100, 2),
-            "explanation": f"The Machine Learning model identified {ml_class} from handcrafted color, texture, and shape descriptors (118 features)." if ml_model is not None else "ML (Full) model is disabled on Render to optimize memory usage. Use ML-PCA for similar results with faster inference."
-        },
-        "ml_pca": {
-            "class": ml_pca_class,
-            "score": round(ml_pca_score * 100, 2),
-            "explanation": f"The ML-PCA model identified {ml_pca_class} using dimensionality reduction (118 → {n_pca_components} features, 95% variance retained). Faster inference with minimal accuracy loss.",
-            "n_components": n_pca_components,
-            "variance_retained": 0.95
-        },
-        "analysis": analysis,
-        "meta": {
-            "feature_count": int(feature_vector.shape[1]),
-            "pca_components": n_pca_components,
-            "models": {
-                "ml_loaded": ml_model is not None,
-                "ml_pca_loaded": ml_pca_model is not None,
-                "dl_loaded": isinstance(dl_model, torch.nn.Module),
-                "dl_scratch_loaded": isinstance(dl_scratch_model, torch.nn.Module),
-                "dl_model_kind": dl_model_kind,
-                "dl_scratch_model_kind": dl_scratch_model_kind,
-                "dl_model_path": dl_model_path,
-                "dl_scratch_model_path": dl_scratch_model_path,
+        # ML-PCA prediction
+        try:
+            ml_pca_class, ml_pca_score, n_pca_components = _predict_ml_pca(feature_vector)
+        except Exception as e:
+            print(f"ML-PCA prediction error: {e}")
+            import traceback
+            traceback.print_exc()
+            ml_pca_class = "Error"
+            ml_pca_score = 0.0
+            n_pca_components = 0
+
+        # DL predictions
+        try:
+            dl_class, dl_score, dl_explanation = _predict_dl(image_np, dl_model, dl_model_kind, "pretrained")
+        except Exception as e:
+            print(f"DL pretrained prediction error: {e}")
+            dl_class = "Error"
+            dl_score = 0.0
+            dl_explanation = f"Error: {str(e)}"
+            
+        try:
+            dl_scratch_class, dl_scratch_score, dl_scratch_explanation = _predict_dl(
+                image_np,
+                dl_scratch_model,
+                dl_scratch_model_kind,
+                "scratch",
+            )
+        except Exception as e:
+            print(f"DL scratch prediction error: {e}")
+            dl_scratch_class = "Error"
+            dl_scratch_score = 0.0
+            dl_scratch_explanation = f"Error: {str(e)}"
+
+        return {
+            "dl": {
+                "class": dl_class,
+                "score": round(dl_score * 100, 2),
+                "explanation": dl_explanation,
             },
-        },
-    }
+            "dl_scratch": {
+                "class": dl_scratch_class,
+                "score": round(dl_scratch_score * 100, 2),
+                "explanation": dl_scratch_explanation,
+            },
+            "ml": {
+                "class": ml_class,
+                "score": round(ml_score * 100, 2),
+                "explanation": f"The Machine Learning model identified {ml_class} from handcrafted color, texture, and shape descriptors (118 features)." if ml_model is not None else "ML (Full) model is disabled on Render to optimize memory usage. Use ML-PCA for similar results with faster inference."
+            },
+            "ml_pca": {
+                "class": ml_pca_class,
+                "score": round(ml_pca_score * 100, 2),
+                "explanation": f"The ML-PCA model identified {ml_pca_class} using dimensionality reduction (118 → {n_pca_components} features, 95% variance retained). Faster inference with minimal accuracy loss.",
+                "n_components": n_pca_components,
+                "variance_retained": 0.95
+            },
+            "analysis": analysis,
+            "meta": {
+                "feature_count": int(feature_vector.shape[1]),
+                "pca_components": n_pca_components,
+                "models": {
+                    "ml_loaded": ml_model is not None,
+                    "ml_pca_loaded": ml_pca_model is not None,
+                    "dl_loaded": isinstance(dl_model, torch.nn.Module),
+                    "dl_scratch_loaded": isinstance(dl_scratch_model, torch.nn.Module),
+                    "dl_model_kind": dl_model_kind,
+                    "dl_scratch_model_kind": dl_scratch_model_kind,
+                    "dl_model_path": dl_model_path,
+                    "dl_scratch_model_path": dl_scratch_model_path,
+                },
+            },
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Unexpected error in predict endpoint: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
