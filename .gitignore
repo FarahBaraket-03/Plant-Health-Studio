@@ -16,9 +16,8 @@ build/
 .ipynb_checkpoints
 *.ipynb_checkpoints
 
-# Model files (large files - add to Git LFS if needed)
-*.pth
-*.pkl
+# Model files (tracked with Git LFS)
+# *.pth and *.pkl are now tracked with Git LFS
 *.h5
 *.onnx
 
@@ -30,10 +29,9 @@ notebooks/preprocessed/*
 # Images (except documentation images)
 *.jpg
 *.jpeg
-*.png
 *.JPG
 *.JPEG
-*.PNG
+
 !documentation/*.png
 !documentation/*.jpg
 
