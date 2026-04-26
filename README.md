@@ -22,10 +22,10 @@ A comprehensive machine learning system for classifying plant diseases using mul
 ## 🌟 Features
 
 ### 4 Classification Models
-- **Deep Learning Pretrained** (ResNet18): ~95% accuracy
-- **Deep Learning Scratch** (Custom CNN): ~90% accuracy  
-- **Machine Learning Full** (118 features): ~88% accuracy
-- **Machine Learning PCA** (40 components): ~87% accuracy, 3× faster
+- **Deep Learning Pretrained** (ResNet18): ~97% accuracy
+- **Deep Learning Scratch** (Custom CNN): ~88% accuracy  
+- **Machine Learning Full** (118 features): ~98% accuracy
+- **Machine Learning PCA** (40 components): ~90% accuracy, 3× faster
 
 ### Image Analysis
 - 7 preprocessing visualizations
@@ -118,7 +118,7 @@ projet_img/
 |-------|----------|----------------|------------|----------|
 | **DL Pretrained** | ~97% | 50ms | 44MB | Maximum accuracy |
 | **DL Scratch** | ~88% | 15ms | 2MB | Mobile/Edge |
-| **ML Full** | ~98% | 18ms | 5MB | Interpretability |
+| **ML Full** | ~98% | 10ms | 5MB | Interpretability |
 | **ML PCA** | ~90% | 3ms | 3MB | Production APIs |
 
 ---
@@ -195,12 +195,12 @@ See [app/frontend/README.md](app/frontend/README.md) for detailed instructions.
 ### Mobile App
 **Recommended**: DL Scratch
 - Small size (2MB)
-- Good accuracy (90%)
+- Good accuracy (88%)
 - Fast on mobile devices
 
 ### Research
 **Recommended**: DL Pretrained
-- Highest accuracy (95%)
+- Highest accuracy (97%)
 - Best for analysis
 - Detailed feature learning
 
