@@ -24,14 +24,24 @@ IS_RENDER = os.environ.get("RENDER") is not None or os.environ.get("RAILWAY_ENVI
 ROOT_DIR = Path(__file__).resolve().parents[2]
 NOTEBOOKS_DIR = ROOT_DIR / "notebooks"
 BACKEND_MODELS_DIR = Path(__file__).resolve().parent / "models"
-ML_MODEL_PATH = BACKEND_MODELS_DIR / "best_model.pkl"
-ML_PCA_MODEL_PATH = BACKEND_MODELS_DIR / "best_model_pca.pkl"
+
+# Try multiple locations for models (Render vs Local)
+ML_MODEL_CANDIDATES = [
+    BACKEND_MODELS_DIR / "best_model.pkl",
+    NOTEBOOKS_DIR / "best_model.pkl",
+]
+ML_PCA_MODEL_CANDIDATES = [
+    BACKEND_MODELS_DIR / "best_model_pca.pkl",
+    NOTEBOOKS_DIR / "best_model_pca.pkl",
+]
 DL_PRETRAINED_CANDIDATES = [
     BACKEND_MODELS_DIR / "best_cnn_final.pth",
+    NOTEBOOKS_DIR / "best_cnn_final.pth",
 ]
 DL_SCRATCH_CANDIDATES = [
     BACKEND_MODELS_DIR / "best_cnn_scratch.pth",
     BACKEND_MODELS_DIR / "best_cnn_scrtach.pth",
+    NOTEBOOKS_DIR / "best_cnn_scratch.pth",
 ]
 DATASET_DIR = NOTEBOOKS_DIR / "data" / "PlantVillage"
 PREPROCESSED_DIR = NOTEBOOKS_DIR / "preprocessed"
@@ -229,29 +239,39 @@ def load_models() -> None:
     dl_labels = _load_labels()
 
     # Load standard ML model (DISABLED on Render to save memory)
-    if not IS_RENDER and ML_MODEL_PATH.exists():
-        print("Loading ML (Full) model - Local environment only")
-        loaded_ml = joblib.load(ML_MODEL_PATH)
-        if isinstance(loaded_ml, dict):
-            ml_bundle = loaded_ml
-            ml_model = loaded_ml.get("model")
-            ml_scaler = loaded_ml.get("scaler")
-            ml_label_encoder = loaded_ml.get("label_encoder")
-        else:
-            ml_model = loaded_ml
+    ml_model_path = _first_existing_path(ML_MODEL_CANDIDATES)
+    if not IS_RENDER and ml_model_path is not None:
+        print(f"Loading ML (Full) model from {ml_model_path} - Local environment only")
+        try:
+            loaded_ml = joblib.load(ml_model_path)
+            if isinstance(loaded_ml, dict):
+                ml_bundle = loaded_ml
+                ml_model = loaded_ml.get("model")
+                ml_scaler = loaded_ml.get("scaler")
+                ml_label_encoder = loaded_ml.get("label_encoder")
+            else:
+                ml_model = loaded_ml
+        except Exception as e:
+            print(f"Failed to load ML model: {e}")
     elif IS_RENDER:
         print("ML (Full) model disabled on Render - using ML-PCA instead for memory efficiency")
 
     # Load PCA ML model (ENABLED on Render)
-    if ML_PCA_MODEL_PATH.exists():
-        print("Loading ML-PCA model")
-        loaded_pca = joblib.load(ML_PCA_MODEL_PATH)
-        if isinstance(loaded_pca, dict):
-            ml_pca_bundle = loaded_pca
-            ml_pca_model = loaded_pca.get("model")
-            ml_pca_scaler = loaded_pca.get("scaler")
-            ml_pca_transformer = loaded_pca.get("pca")
-            ml_pca_label_encoder = loaded_pca.get("label_encoder")
+    ml_pca_path = _first_existing_path(ML_PCA_MODEL_CANDIDATES)
+    if ml_pca_path is not None:
+        print(f"Loading ML-PCA model from {ml_pca_path}")
+        try:
+            loaded_pca = joblib.load(ml_pca_path)
+            if isinstance(loaded_pca, dict):
+                ml_pca_bundle = loaded_pca
+                ml_pca_model = loaded_pca.get("model")
+                ml_pca_scaler = loaded_pca.get("scaler")
+                ml_pca_transformer = loaded_pca.get("pca")
+                ml_pca_label_encoder = loaded_pca.get("label_encoder")
+        except Exception as e:
+            print(f"Failed to load ML-PCA model: {e}")
+    else:
+        print(f"ML-PCA model not found. Searched: {[str(p) for p in ML_PCA_MODEL_CANDIDATES]}")
 
     pretrained_path = _first_existing_path(DL_PRETRAINED_CANDIDATES)
     if pretrained_path is not None:
@@ -489,7 +509,23 @@ def _predict_dl(image_np: np.ndarray, model: Any, model_kind: str, model_label: 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    print("="*80)
+    print("STARTING PLANT DISEASE DETECTION API")
+    print("="*80)
+    print(f"Working directory: {Path.cwd()}")
+    print(f"Backend models dir: {BACKEND_MODELS_DIR}")
+    print(f"Backend models dir exists: {BACKEND_MODELS_DIR.exists()}")
+    if BACKEND_MODELS_DIR.exists():
+        print(f"Files in models dir: {list(BACKEND_MODELS_DIR.iterdir())}")
+    print(f"Notebooks dir: {NOTEBOOKS_DIR}")
+    print(f"Notebooks dir exists: {NOTEBOOKS_DIR.exists()}")
+    print("="*80)
+    
     load_models()
+    
+    print("="*80)
+    print("STARTUP COMPLETE")
+    print("="*80)
     yield
 
 app = FastAPI(title="Plant Disease Detection API", lifespan=lifespan)
@@ -501,6 +537,36 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/")
+async def root():
+    """Root endpoint - API information"""
+    return {
+        "name": "Plant Disease Detection API",
+        "version": "1.0.0",
+        "status": "running",
+        "environment": "Render" if IS_RENDER else "Local",
+        "endpoints": {
+            "predict": "/predict",
+            "health": "/health",
+            "docs": "/docs"
+        }
+    }
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for monitoring"""
+    return {
+        "status": "healthy",
+        "environment": "Render" if IS_RENDER else "Local",
+        "models": {
+            "ml_loaded": ml_model is not None,
+            "ml_pca_loaded": ml_pca_model is not None,
+            "dl_loaded": isinstance(dl_model, torch.nn.Module),
+            "dl_scratch_loaded": isinstance(dl_scratch_model, torch.nn.Module),
+        },
+        "labels_count": len(dl_labels)
+    }
 
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):

@@ -1,0 +1,21 @@
+# Files to exclude from Render deployment
+# (Empty = include everything)
+
+# Exclude notebooks data to save space
+notebooks/data/
+notebooks/preprocessed/
+
+# Exclude development files
+.vscode/
+.git/
+.gitignore
+*.md
+!README.md
+
+# Exclude test files
+test_*.py
+*_test.py
+
+# Exclude frontend (deployed separately)
+app/frontend/node_modules/
+app/frontend/.next/
