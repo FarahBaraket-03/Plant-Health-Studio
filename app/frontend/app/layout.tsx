@@ -19,14 +19,14 @@ export const metadata: Metadata = {
   title: 'Plant Health Studio - Disease Detection',
   description: 'AI-powered plant disease detection using Machine Learning and Deep Learning models',
   icons: {
-    icon: './leaf1.png',
+    icon: '/leaf1.png',
     shortcut: '/leaf1.png',
     apple: '/leaf1.png',
   },
   openGraph: {
     title: 'Plant Health Studio',
     description: 'AI-powered plant disease detection',
-    images: ['./images/leaf1.png'],
+    images: ['/leaf1.png'],
   },
 };
 
