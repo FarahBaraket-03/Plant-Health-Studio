@@ -91,6 +91,7 @@ def extract_color_features(image_rgb: np.ndarray) -> np.ndarray:
         feats.extend(hist)
     
     # RGB per-channel mean + std
+    for ch in range(3):
         channel = image_rgb[:, :, ch].astype(np.float32)
         feats.append(channel.mean())
         feats.append(channel.std())

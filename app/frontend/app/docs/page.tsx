@@ -88,7 +88,7 @@ export default function Documentation() {
                       11M parameters
                     </span>
                     <span className="rounded-full bg-primary/20 px-3 py-1 text-xs font-semibold text-primary">
-                      ~95% accuracy
+                      ~98% accuracy
                     </span>
                   </div>
                 </div>
@@ -137,7 +137,7 @@ export default function Documentation() {
                       0.5M parameters
                     </span>
                     <span className="rounded-full bg-secondary/20 px-3 py-1 text-xs font-semibold text-secondary">
-                      ~90% accuracy
+                      ~88% accuracy
                     </span>
                   </div>
                 </div>
@@ -186,7 +186,7 @@ export default function Documentation() {
                       118 features
                     </span>
                     <span className="rounded-full bg-secondary/20 px-3 py-1 text-xs font-semibold text-secondary">
-                      ~88% accuracy
+                      ~97% accuracy
                     </span>
                   </div>
                 </div>
@@ -232,10 +232,10 @@ export default function Documentation() {
                 <div className="pt-3 border-t border-border/30">
                   <div className="flex gap-2">
                     <span className="rounded-full bg-secondary/20 px-3 py-1 text-xs font-semibold text-secondary">
-                      ~40 components
+                      41 components
                     </span>
                     <span className="rounded-full bg-primary/20 px-3 py-1 text-xs font-semibold text-primary">
-                      ~87% accuracy
+                      ~90% accuracy
                     </span>
                     <span className="rounded-full bg-secondary/20 px-3 py-1 text-xs font-semibold text-secondary">
                       65% faster
@@ -350,35 +350,35 @@ export default function Documentation() {
               <tbody className="text-xs">
                 <tr className="border-b border-border/30">
                   <td className="py-3 font-semibold text-foreground">DL Pretrained</td>
-                  <td className="py-3 text-center text-primary font-bold">~95%</td>
-                  <td className="py-3 text-center text-primary font-bold">~0.94</td>
+                  <td className="py-3 text-center text-primary font-bold">~98%</td>
+                  <td className="py-3 text-center text-primary font-bold">~0.97</td>
                   <td className="py-3 text-center text-muted-foreground">~50ms</td>
                   <td className="py-3 text-center text-muted-foreground">~44MB</td>
                   <td className="py-3 text-muted-foreground">Highest accuracy but largest model</td>
                 </tr>
                 <tr className="border-b border-border/30">
                   <td className="py-3 font-semibold text-foreground">DL Scratch</td>
-                  <td className="py-3 text-center text-secondary font-bold">~90%</td>
-                  <td className="py-3 text-center text-secondary font-bold">~0.89</td>
+                  <td className="py-3 text-center text-secondary font-bold">~88%</td>
+                  <td className="py-3 text-center text-secondary font-bold">~0.87</td>
                   <td className="py-3 text-center text-muted-foreground">~15ms</td>
                   <td className="py-3 text-center text-muted-foreground">~2MB</td>
                   <td className="py-3 text-muted-foreground">Fast and lightweight, good accuracy</td>
                 </tr>
                 <tr className="border-b border-border/30">
                   <td className="py-3 font-semibold text-foreground">ML (Full)</td>
-                  <td className="py-3 text-center text-primary font-bold">~88%</td>
-                  <td className="py-3 text-center text-primary font-bold">~0.87</td>
+                  <td className="py-3 text-center text-primary font-bold">~99%</td>
+                  <td className="py-3 text-center text-primary font-bold">~0.99</td>
                   <td className="py-3 text-center text-muted-foreground">~10ms</td>
                   <td className="py-3 text-center text-muted-foreground">~5MB</td>
-                  <td className="py-3 text-muted-foreground">Interpretable, fast, works with small data</td>
+                  <td className="py-3 text-muted-foreground">Interpretable, fast, excellent accuracy</td>
                 </tr>
                 <tr>
-                  <td className="py-3 font-semibold text-foreground">ML + PCA</td>
-                  <td className="py-3 text-center text-secondary font-bold">~87%</td>
-                  <td className="py-3 text-center text-secondary font-bold">~0.86</td>
+                  <td className="py-3 font-semibold text-foreground">ML + PCA (K=15)</td>
+                  <td className="py-3 text-center text-secondary font-bold">~92%</td>
+                  <td className="py-3 text-center text-secondary font-bold">~0.92</td>
                   <td className="py-3 text-center text-primary font-bold">~3ms</td>
                   <td className="py-3 text-center text-muted-foreground">~3MB</td>
-                  <td className="py-3 text-muted-foreground">Fastest inference, minimal accuracy loss</td>
+                  <td className="py-3 text-muted-foreground">Fastest inference, good accuracy</td>
                 </tr>
               </tbody>
             </table>
@@ -387,10 +387,11 @@ export default function Documentation() {
           <div className="mt-6 rounded-xl bg-gradient-to-br from-primary/5 to-secondary/5 p-4">
             <h4 className="mb-2 text-sm font-semibold text-foreground">Key Insights</h4>
             <ul className="space-y-1 text-xs text-muted-foreground">
-              <li>• DL Pretrained offers best accuracy but requires more computational resources</li>
-              <li>• ML + PCA provides 3× faster inference than full ML with only 1% accuracy drop</li>
-              <li>• DL Scratch balances accuracy and efficiency, ideal for mobile deployment</li>
-              <li>• All models achieve &gt;85% accuracy, suitable for production use</li>
+              <li>• ML (Full) achieves highest accuracy (99%) with interpretable handcrafted features</li>
+              <li>• DL Pretrained offers excellent accuracy (98%) with deep feature learning</li>
+              <li>• ML + PCA (K=15) provides 3× faster inference with 92% accuracy (7% drop from full ML)</li>
+              <li>• DL Scratch balances accuracy (88%) and efficiency, ideal for mobile deployment</li>
+              <li>• All models achieve &gt;88% accuracy, suitable for production use</li>
             </ul>
           </div>
         </section>
@@ -466,8 +467,8 @@ export default function Documentation() {
               </ul>
               <div className="mt-4 rounded-lg bg-primary/10 p-3">
                 <p className="text-xs text-foreground">
-                  <strong>Result:</strong> 95% PCA reduces features from 118 → ~40 (65% reduction) with only 1% accuracy loss, 
-                  while providing 3× faster inference.
+                  <strong>Result:</strong> 95% PCA reduces features from 118 → 41 (65% reduction) with 7% accuracy loss 
+                  (99% → 92%), while providing 3× faster inference. KNN with K=15 neighbors optimizes the trade-off.
                 </p>
               </div>
             </div>

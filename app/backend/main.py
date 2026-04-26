@@ -1,5 +1,6 @@
 import base64
 import io
+import os
 from collections import OrderedDict
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -17,11 +18,14 @@ from torchvision import models as tv_models
 
 from preprocessing import preprocess_image, hsv_green_mask, extract_all_features
 
+# Detect if running on Render (or other cloud platforms)
+IS_RENDER = os.environ.get("RENDER") is not None or os.environ.get("RAILWAY_ENVIRONMENT") is not None
+
 ROOT_DIR = Path(__file__).resolve().parents[2]
 NOTEBOOKS_DIR = ROOT_DIR / "notebooks"
 BACKEND_MODELS_DIR = Path(__file__).resolve().parent / "models"
-ML_MODEL_PATH = NOTEBOOKS_DIR / "best_model.pkl"
-ML_PCA_MODEL_PATH = NOTEBOOKS_DIR / "best_model_pca.pkl"
+ML_MODEL_PATH = BACKEND_MODELS_DIR / "best_model.pkl"
+ML_PCA_MODEL_PATH = BACKEND_MODELS_DIR / "best_model_pca.pkl"
 DL_PRETRAINED_CANDIDATES = [
     BACKEND_MODELS_DIR / "best_cnn_final.pth",
 ]
@@ -224,8 +228,9 @@ def load_models() -> None:
     dl_scratch_model_path = None
     dl_labels = _load_labels()
 
-    # Load standard ML model
-    if ML_MODEL_PATH.exists():
+    # Load standard ML model (DISABLED on Render to save memory)
+    if not IS_RENDER and ML_MODEL_PATH.exists():
+        print("Loading ML (Full) model - Local environment only")
         loaded_ml = joblib.load(ML_MODEL_PATH)
         if isinstance(loaded_ml, dict):
             ml_bundle = loaded_ml
@@ -234,9 +239,12 @@ def load_models() -> None:
             ml_label_encoder = loaded_ml.get("label_encoder")
         else:
             ml_model = loaded_ml
+    elif IS_RENDER:
+        print("ML (Full) model disabled on Render - using ML-PCA instead for memory efficiency")
 
-    # Load PCA ML model
+    # Load PCA ML model (ENABLED on Render)
     if ML_PCA_MODEL_PATH.exists():
+        print("Loading ML-PCA model")
         loaded_pca = joblib.load(ML_PCA_MODEL_PATH)
         if isinstance(loaded_pca, dict):
             ml_pca_bundle = loaded_pca
@@ -269,9 +277,11 @@ def load_models() -> None:
             dl_scratch_model_kind = scratch_kind
             dl_scratch_model_path = str(scratch_path)
 
+    environment = "Render" if IS_RENDER else "Local"
     print(
-        "Model status => "
-        f"ML: {'loaded' if ml_model is not None else 'missing'}, "
+        f"Environment: {environment} | "
+        f"Model status => "
+        f"ML: {'loaded' if ml_model is not None else 'disabled (Render)' if IS_RENDER else 'missing'}, "
         f"ML-PCA: {'loaded' if ml_pca_model is not None else 'missing'}, "
         f"DL pretrained: {dl_model_kind if isinstance(dl_model, torch.nn.Module) else 'missing or unsupported checkpoint'}, "
         f"DL scratch: {dl_scratch_model_kind if isinstance(dl_scratch_model, torch.nn.Module) else 'missing or unsupported checkpoint'}, "
@@ -317,19 +327,18 @@ def _render_histogram_image(image_np: np.ndarray) -> np.ndarray:
 def _extract_feature_vector(image_np: np.ndarray) -> np.ndarray:
     """
     Extract 118-dimensional feature vector using the SAME pipeline as training.
-    Training uses: resize → extract features (NO preprocessing/blurring!)
+    Training used preprocessed images (CLAHE + Gaussian blur), so we must apply
+    the same preprocessing to raw images before feature extraction.
     """
-    # Resize to 224x224 (same as training)
-    if image_np.shape[:2] != IMG_SIZE:
-        rgb = cv2.resize(image_np, IMG_SIZE, interpolation=cv2.INTER_AREA)
-    else:
-        rgb = image_np
+    # Apply full preprocessing pipeline to match training
+    # Training images were preprocessed with CLAHE + blur, then saved
+    _, _, _, blurred, _ = preprocess_image(image_np)
     
-    # Create HSV green mask from resized RGB
-    mask = hsv_green_mask(rgb)
+    # Create HSV green mask from preprocessed image
+    mask = hsv_green_mask(blurred)
     
-    # Extract all features from RAW resized image (not preprocessed!)
-    feature_vector = extract_all_features(rgb, mask)
+    # Extract all features from preprocessed image (matches training)
+    feature_vector = extract_all_features(blurred, mask)
     
     return feature_vector
 
@@ -378,6 +387,8 @@ def _get_image_analysis(image_np: np.ndarray) -> Dict[str, str]:
 
 def _predict_ml(feature_vector: np.ndarray) -> Tuple[str, float]:
     if ml_model is None:
+        if IS_RENDER:
+            return "Disabled on Render (use ML-PCA)", 0.0
         return "Unavailable", 0.0
 
     inference_vector = feature_vector
@@ -438,6 +449,9 @@ def _preprocess_dl_tensor(image_np: np.ndarray, model_kind: str) -> torch.Tensor
     """
     Preprocess image for deep learning models.
     Uses unified preprocessing pipeline for consistency.
+    
+    IMPORTANT: Both scratch CNN and pretrained ResNet were trained with ImageNet normalization,
+    so we must apply it to ALL models during inference.
     """
     # Apply the same preprocessing as ML model (5 steps)
     _, _, _, blurred, _ = preprocess_image(image_np)
@@ -445,11 +459,10 @@ def _preprocess_dl_tensor(image_np: np.ndarray, model_kind: str) -> torch.Tensor
     # Convert to tensor and normalize to [0, 1]
     tensor = torch.from_numpy(blurred.astype(np.float32) / 255.0).permute(2, 0, 1).unsqueeze(0)
 
-    # Apply ImageNet normalization for ResNet models
-    if "resnet" in model_kind:
-        mean = torch.tensor([0.485, 0.456, 0.406], dtype=tensor.dtype).view(1, 3, 1, 1)
-        std = torch.tensor([0.229, 0.224, 0.225], dtype=tensor.dtype).view(1, 3, 1, 1)
-        tensor = (tensor - mean) / std
+    # Apply ImageNet normalization (used for ALL models during training)
+    mean = torch.tensor([0.485, 0.456, 0.406], dtype=tensor.dtype).view(1, 3, 1, 1)
+    std = torch.tensor([0.229, 0.224, 0.225], dtype=tensor.dtype).view(1, 3, 1, 1)
+    tensor = (tensor - mean) / std
 
     return tensor
 
@@ -491,7 +504,11 @@ app.add_middleware(
 
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
-    if ml_model is None and ml_pca_model is None:
+    # On Render, only require ML-PCA model (ML Full is disabled)
+    if IS_RENDER and ml_pca_model is None:
+        raise HTTPException(status_code=500, detail="ML-PCA model not loaded")
+    # Locally, require at least one ML model
+    elif not IS_RENDER and ml_model is None and ml_pca_model is None:
         raise HTTPException(status_code=500, detail="No ML models loaded")
 
     contents = await file.read()
@@ -558,7 +575,7 @@ async def predict(file: UploadFile = File(...)):
         "ml": {
             "class": ml_class,
             "score": round(ml_score * 100, 2),
-            "explanation": f"The Machine Learning model identified {ml_class} from handcrafted color, texture, and shape descriptors (118 features)."
+            "explanation": f"The Machine Learning model identified {ml_class} from handcrafted color, texture, and shape descriptors (118 features)." if ml_model is not None else "ML (Full) model is disabled on Render to optimize memory usage. Use ML-PCA for similar results with faster inference."
         },
         "ml_pca": {
             "class": ml_pca_class,
