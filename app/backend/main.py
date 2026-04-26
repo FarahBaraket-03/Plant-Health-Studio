@@ -320,10 +320,10 @@ def _extract_feature_vector(image_np: np.ndarray) -> np.ndarray:
     This ensures consistency with training data.
     """
     # Apply the same preprocessing pipeline as training
-    _, _, _, blurred, _ = preprocess_image(image_np)
+    resized, _, _, blurred, _ = preprocess_image(image_np)
     
-    # Create HSV green mask for shape features
-    mask = hsv_green_mask(blurred)
+    # Create HSV green mask for shape features (from resized, not blurred!)
+    mask = hsv_green_mask(resized)
     
     # Extract all features (118 dimensions)
     feature_vector = extract_all_features(blurred, mask)
