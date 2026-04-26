@@ -316,17 +316,20 @@ def _render_histogram_image(image_np: np.ndarray) -> np.ndarray:
 
 def _extract_feature_vector(image_np: np.ndarray) -> np.ndarray:
     """
-    Extract 118-dimensional feature vector using the unified preprocessing pipeline.
-    This ensures consistency with training data.
+    Extract 118-dimensional feature vector using the SAME pipeline as training.
+    Training uses: resize → extract features (NO preprocessing/blurring!)
     """
-    # Apply the same preprocessing pipeline as training
-    resized, _, _, blurred, _ = preprocess_image(image_np)
+    # Resize to 224x224 (same as training)
+    if image_np.shape[:2] != IMG_SIZE:
+        rgb = cv2.resize(image_np, IMG_SIZE, interpolation=cv2.INTER_AREA)
+    else:
+        rgb = image_np
     
-    # Create HSV green mask for shape features (from resized, not blurred!)
-    mask = hsv_green_mask(resized)
+    # Create HSV green mask from resized RGB
+    mask = hsv_green_mask(rgb)
     
-    # Extract all features (118 dimensions)
-    feature_vector = extract_all_features(blurred, mask)
+    # Extract all features from RAW resized image (not preprocessed!)
+    feature_vector = extract_all_features(rgb, mask)
     
     return feature_vector
 
