@@ -3,7 +3,7 @@ import io
 from collections import OrderedDict
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional, Union, Dict, List, Tuple
 
 import cv2
 import joblib
@@ -33,22 +33,22 @@ DATASET_DIR = NOTEBOOKS_DIR / "data" / "PlantVillage"
 PREPROCESSED_DIR = NOTEBOOKS_DIR / "preprocessed"
 IMG_SIZE = (224, 224)
 
-ml_bundle: dict[str, Any] | None = None
+ml_bundle: Optional[Dict[str, Any]] = None
 ml_model: Any = None
 ml_scaler: Any = None
 ml_label_encoder: Any = None
-ml_pca_bundle: dict[str, Any] | None = None
+ml_pca_bundle: Optional[Dict[str, Any]] = None
 ml_pca_model: Any = None
 ml_pca_scaler: Any = None
 ml_pca_transformer: Any = None
 ml_pca_label_encoder: Any = None
 dl_model: Any = None
 dl_model_kind: str = "unknown"
-dl_model_path: str | None = None
+dl_model_path: Optional[str] = None
 dl_scratch_model: Any = None
 dl_scratch_model_kind: str = "unknown"
-dl_scratch_model_path: str | None = None
-dl_labels: list[str] = []
+dl_scratch_model_path: Optional[str] = None
+dl_labels: List[str] = []
 
 
 def _build_pretrained_resnet18(num_classes: int) -> torch.nn.Module:
@@ -103,7 +103,7 @@ def _build_scratch_cnn(num_classes: int) -> torch.nn.Module:
     )
 
 
-def _first_existing_path(paths: list[Path]) -> Path | None:
+def _first_existing_path(paths: List[Path]) -> Optional[Path]:
     for path in paths:
         if path.exists():
             return path
@@ -111,7 +111,7 @@ def _first_existing_path(paths: list[Path]) -> Path | None:
 
 
 
-def _normalize_state_dict_keys(state_dict: dict[str, Any]) -> dict[str, Any]:
+def _normalize_state_dict_keys(state_dict: Dict[str, Any]) -> Dict[str, Any]:
     if not state_dict:
         return state_dict
     if all(key.startswith("module.") for key in state_dict.keys()):
@@ -119,7 +119,7 @@ def _normalize_state_dict_keys(state_dict: dict[str, Any]) -> dict[str, Any]:
     return state_dict
 
 
-def _infer_num_classes_from_state_dict(state_dict: dict[str, Any], fallback: int) -> int:
+def _infer_num_classes_from_state_dict(state_dict: Dict[str, Any], fallback: int) -> int:
     for key in ("fc.weight", "classifier.5.weight"):
         weight = state_dict.get(key)
         if isinstance(weight, torch.Tensor) and weight.ndim == 2:
@@ -127,7 +127,7 @@ def _infer_num_classes_from_state_dict(state_dict: dict[str, Any], fallback: int
     return fallback
 
 
-def _build_dl_model_from_state_dict(state_dict: dict[str, Any], num_classes: int) -> tuple[torch.nn.Module, str] | tuple[None, str]:
+def _build_dl_model_from_state_dict(state_dict: Dict[str, Any], num_classes: int) -> Union[Tuple[torch.nn.Module, str], Tuple[None, str]]:
     builders = [
         (
             "resnet18",
@@ -150,9 +150,9 @@ def _build_dl_model_from_state_dict(state_dict: dict[str, Any], num_classes: int
 
 def _load_dl_checkpoint(
     checkpoint_path: Path,
-    builders: list[tuple[str, Any]],
+    builders: List[Tuple[str, Any]],
     fallback_classes: int,
-) -> tuple[torch.nn.Module | None, str]:
+) -> Tuple[Optional[torch.nn.Module], str]:
     raw_model = torch.load(checkpoint_path, map_location=torch.device("cpu"))
     if isinstance(raw_model, torch.nn.Module):
         return raw_model.eval(), raw_model.__class__.__name__.lower()
@@ -177,7 +177,7 @@ def _load_dl_checkpoint(
     return None, "unsupported"
 
 
-def _load_labels() -> list[str]:
+def _load_labels() -> List[str]:
     def has_direct_images(folder: Path) -> bool:
         patterns = ("*.jpg", "*.jpeg", "*.png", "*.JPG", "*.JPEG", "*.PNG")
         return any(folder.glob(pattern) for pattern in patterns)
@@ -331,7 +331,7 @@ def _extract_feature_vector(image_np: np.ndarray) -> np.ndarray:
     return feature_vector
 
 
-def _get_image_analysis(image_np: np.ndarray) -> dict[str, str]:
+def _get_image_analysis(image_np: np.ndarray) -> Dict[str, str]:
     """
     Generate analysis visualizations from the raw input image.
     Note: Uses raw image for visualization purposes, not preprocessed version.
@@ -373,7 +373,7 @@ def _get_image_analysis(image_np: np.ndarray) -> dict[str, str]:
     }
 
 
-def _predict_ml(feature_vector: np.ndarray) -> tuple[str, float]:
+def _predict_ml(feature_vector: np.ndarray) -> Tuple[str, float]:
     if ml_model is None:
         return "Unavailable", 0.0
 
@@ -397,7 +397,7 @@ def _predict_ml(feature_vector: np.ndarray) -> tuple[str, float]:
     return str(pred_label), score
 
 
-def _predict_ml_pca(feature_vector: np.ndarray) -> tuple[str, float, int]:
+def _predict_ml_pca(feature_vector: np.ndarray) -> Tuple[str, float, int]:
     """Predict using PCA-reduced ML model"""
     if ml_pca_model is None:
         return "Unavailable", 0.0, 0
@@ -451,7 +451,7 @@ def _preprocess_dl_tensor(image_np: np.ndarray, model_kind: str) -> torch.Tensor
     return tensor
 
 
-def _predict_dl(image_np: np.ndarray, model: Any, model_kind: str, model_label: str) -> tuple[str, float, str]:
+def _predict_dl(image_np: np.ndarray, model: Any, model_kind: str, model_label: str) -> Tuple[str, float, str]:
     if not isinstance(model, torch.nn.Module):
         return (
             "Unavailable",
